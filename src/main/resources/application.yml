@@ -1,0 +1,185 @@
+spring:
+  application:
+    name: ParkingSystem-wego
+
+  # ─── DataSource ───────────────────────────────────────────
+  datasource:
+    url: jdbc:postgresql://localhost:5432/parkingsystem
+    username: parkuser
+    password: parkpass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: ParkingSystemHikari
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ─── JPA / Hibernate ──────────────────────────────────────
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  # ─── SQL Initialization ────────────────────────────────────
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+  # ─── Redis ────────────────────────────────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
+
+  # ─── Cache ────────────────────────────────────────────────
+  cache:
+    type: redis
+    redis:
+      time-to-live: 120000  # 120 seconds TTL (matches live sync interval)
+      key-prefix: "parkingsystem:"
+      use-key-prefix: true
+      cache-null-values: false
+
+  # ─── Scheduling ───────────────────────────────────────────
+  task:
+    scheduling:
+      pool:
+        size: 4
+
+# ─── Server ───────────────────────────────────────────────────
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    connection-timeout: 10s
+
+# ─── Actuator ─────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# ─── Logging ──────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.wego.parkingsystem: DEBUG
+    org.springframework.cache: DEBUG
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+
+# ─── SpringDoc / OpenAPI ───────────────────────────────────────
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: false
+
+# ─── Resilience4j ─────────────────────────────────────────────
+resilience4j:
+  circuitbreaker:
+    instances:
+      liveAvailabilityApi:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 3s
+  retry:
+    instances:
+      liveAvailabilityApi:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  timelimiter:
+    instances:
+      liveAvailabilityApi:
+        timeoutDuration: 3s
+
+# ─── Application Specific Settings ────────────────────────────
+app:
+  # Live availability sync interval
+  sync:
+    interval-ms: 300000   # 5 minutes
+    enabled: true
+
+  # Singapore dataset
+  dataset:
+    csv-path: classpath:data/hdb-carpark-information.csv
+
+  # Singapore bounding box (WGS84)
+  singapore:
+    lat-min: 1.15
+    lat-max: 1.48
+    lng-min: 103.55
+    lng-max: 104.10
+
+  # Live API
+  partner-api:
+    carpark-availability-url: https://api.data.gov.sg/v1/transport/carpark-availability
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+
+# ─── Rate Limiting ────────────────────────────────────────────
+rate-limit:
+  enabled: true
+  algorithm: TOKEN_BUCKET
+  capacity: 10
+  refill-tokens: 10
+  refill-duration-seconds: 60
+  cost-per-request: 1
+  key-prefix: "rate-limit:"
+
+---
+# ─── Docker Profile Override ──────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://db:5432/parkingsystem
+  data:
+    redis:
+      host: redis
