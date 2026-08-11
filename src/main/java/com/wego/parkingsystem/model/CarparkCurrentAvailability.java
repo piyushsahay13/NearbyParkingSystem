@@ -32,11 +32,9 @@ public class CarparkCurrentAvailability {
 
     /**
      * Lot type: C = Car, Y = Motorcycle, H = Heavy Vehicle.
-     * Default is 'C' (car).
      */
     @Column(name = "lot_type", nullable = false, length = 10)
-    @Builder.Default
-    private String lotType = "C";
+    private String lotType;
 
     @Column(name = "update_datetime", nullable = false)
     private Instant updateDatetime;

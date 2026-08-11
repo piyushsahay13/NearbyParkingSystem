@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS carpark_current_availability (
         REFERENCES carparks(carpark_number) ON DELETE CASCADE,
     total_lots      INT NOT NULL CHECK (total_lots >= 0),
     lots_available  INT NOT NULL CHECK (lots_available >= 0),
-    lot_type        VARCHAR(10) NOT NULL DEFAULT 'C', -- C=Car, Y=Motorcycle, H=Heavy Vehicle
+    lot_type        VARCHAR(10) NOT NULL, -- C=Car, Y=Motorcycle, H=Heavy Vehicle
     update_datetime TIMESTAMPTZ NOT NULL,
     is_stale        BOOLEAN NOT NULL DEFAULT FALSE,
     updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP

@@ -13,8 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -26,7 +24,6 @@ public class LiveAvailabilityService {
     private final LiveAvailabilityApiClient liveAvailabilityApiClient;
 
     private final AtomicBoolean syncInProgress = new AtomicBoolean(false);
-    private static final ZoneId SINGAPORE_ZONE_ID = ZoneId.of("Asia/Singapore");
 
     @CircuitBreaker(name = "liveAvailabilityApi", fallbackMethod = "syncFallback")
     @Retry(name = "liveAvailabilityApi")
@@ -92,7 +89,7 @@ public class LiveAvailabilityService {
                         info.getTotalLots(),
                         info.getLotsAvailable(),
                         info.getLotType(),
-                        data.getUpdateDatetime().atZone(SINGAPORE_ZONE_ID).toInstant()
+                        data.getUpdateDatetime().toInstant()
                 );
                 count++;
             } catch (Exception e) {
