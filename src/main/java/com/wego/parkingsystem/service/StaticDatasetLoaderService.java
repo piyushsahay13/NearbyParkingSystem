@@ -39,7 +39,7 @@ public class StaticDatasetLoaderService {
     public void loadDataset() {
         log.info("Starting static carpark dataset ingestion from data.gov.sg API (sequentially).");
 
-        final int limit = 100;
+        final int limit = 500;
         int offset = 0;
         int totalRecords = 0;
         boolean hasMore = true;

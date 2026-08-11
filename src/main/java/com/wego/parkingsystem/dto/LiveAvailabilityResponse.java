@@ -2,9 +2,11 @@ package com.wego.parkingsystem.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.wego.parkingsystem.util.FlexibleOffsetDateTimeDeserializer;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -15,7 +17,8 @@ public class LiveAvailabilityResponse {
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Item {
-        private LocalDateTime timestamp;
+        @JsonDeserialize(using = FlexibleOffsetDateTimeDeserializer.class)
+        private OffsetDateTime timestamp;
         @JsonProperty("carpark_data")
         private List<CarparkData> carparkData;
     }
@@ -26,7 +29,8 @@ public class LiveAvailabilityResponse {
         @JsonProperty("carpark_number")
         private String carparkNumber;
         @JsonProperty("update_datetime")
-        private LocalDateTime updateDatetime;
+        @JsonDeserialize(using = FlexibleOffsetDateTimeDeserializer.class)
+        private OffsetDateTime updateDatetime;
         @JsonProperty("carpark_info")
         private List<CarparkInfo> carparkInfo;
     }

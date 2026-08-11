@@ -6,7 +6,7 @@ package com.wego.parkingsystem.constants;
  */
 public interface ApplicationConstants {
 
-    String NEARBY_CARPARKS_PATH = "/api/v1/carparks/nearby";
+    String NEARBY_CARPARKS_PATH = "/api/v1/parking/lots/nearby";
     String HEADER_X_FORWARDED_FOR = "X-Forwarded-For";
     String HEADER_X_REAL_IP = "X-Real-IP";
     String HEADER_RATE_LIMIT = "X-RateLimit-Limit";
