@@ -45,7 +45,7 @@ Implemented capabilities include:
 ## Verification Checklist
 
 - `docker compose up --build` builds and starts the app, PostgreSQL/PostGIS, and Redis.
-- `GET /api/v1/carparks/nearby` returns only carparks with available lots inside the supplied radius.
+- `GET /api/v1/parking/lots/nearby` returns only carparks with available lots inside the supplied radius.
 - Invalid or out-of-Singapore coordinates return a standardized `400` response.
 - The eleventh request from one client within a minute returns `429` with `Retry-After`.
 - Partner failure returns stale results when available, clearly marked as stale.
