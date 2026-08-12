@@ -113,7 +113,7 @@ sequenceDiagram
 ## Running Locally
 
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
 
 This starts three services defined in `docker-compose.yml`:
