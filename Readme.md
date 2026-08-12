@@ -3,7 +3,7 @@
 A production-grade, resilient Spring Boot backend that helps drivers in Singapore find available car parks near a given GPS location. It ingests HDB carpark metadata from data.gov.sg, synchronizes live lot availability on a schedule, and serves ranked proximity search results backed by PostGIS spatial queries, a Redis cache-aside layer, and Redis token-bucket rate limiting.
 
 - **Search endpoint:** `GET /api/v1/parking/lots/nearby`
-- **Stack:** Java 17+, Spring Boot, Spring Data JPA, PostgreSQL 16 + PostGIS, Redis 7, Resilience4j, OpenFeign, Micrometer/Prometheus.
+- **Stack:** Java 21, Spring Boot, Spring Data JPA, PostgreSQL 16 + PostGIS, Redis 7, Resilience4j, OpenFeign, Micrometer/Prometheus.
 
 ---
 
@@ -139,3 +139,33 @@ curl "http://localhost:8080/api/v1/parking/lots/nearby?latitude=1.3325&longitude
 | `radius` | 100 to 10000 (meters) | 3000 | Search radius |
 | `limit` | 1 to 100 | 10 | Page size |
 | `page` | >= 0 | 0 | 0-indexed page |
+
+---
+
+## Future Perspective and Challenges
+
+### What was your most challenging technical or product decision, and why?
+
+The most challenging technical decision was deciding how to design the location-based carpark search so that it works well at the current scale without over-engineering it for future scale.
+
+A simple approach would be to query carparks based directly on latitude and longitude, but as the number of carparks and search requests grows, the amount of data involved in every location search can become expensive.
+
+I therefore considered grid-based geographical partitioning as a future scaling strategy. The idea is to divide the map into cells, associate each carpark with a cell, and when a user searches, first identify the user's cell and nearby cells. We can then perform the exact distance calculation only on those candidate carparks.
+
+I didn't want to introduce that complexity prematurely, because grid-based systems also introduce challenges such as boundary cases, cell-size selection, and uneven data distribution. So the decision was to keep the initial implementation simpler while designing it in a way that allows grid-based indexing to be introduced when the scale justifies it.
+
+The key trade-off was simplicity and correctness today versus scalability tomorrow.
+
+### If users report "nearby" results 10km away, how would you investigate and fix this?
+
+1.  **Investigate the Request**: First, I would check the user's request parameters, specifically the `radius`, `latitude`, and `longitude`.
+2.  **Verify the Result**: I would then manually verify the distance between the user's coordinates and the coordinates of the "distant" carpark result.
+3.  **Verify the Distance Logic**: I would review the application's distance calculation logic to ensure it's correct.
+4.  **Check the Database**: As a final step, I would query the database to see if there are any other valid carparks closer to the user that should have been returned.
+
+### What's one aspect you'd improve given more time?
+
+Given more time, I would improve two main aspects:
+
+1.  **Spatial Indexing**: I would improve the spatial indexing by using a more advanced partitioning strategy like a Quadtree or Google's S2 library. This would involve dividing the world map into a grid of cells, which would help in scaling and expanding the application globally.
+2.  **Monitoring and Metrics**: I would also add more detailed monitoring and metrics. This would include creating dashboards with graphs to better understand error rates, request times, and other key performance indicators.
