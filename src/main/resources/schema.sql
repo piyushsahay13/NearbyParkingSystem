@@ -74,52 +74,52 @@ CREATE INDEX IF NOT EXISTS idx_current_avail_lookup
     ON carpark_current_availability (carpark_number, lots_available, is_stale);
 
 
--- ============================================================
--- Table 3: Time-Series Availability History (Cold Data / Audit)
--- Stores every recorded availability snapshot.
--- Partitioned by month (RANGE on update_datetime) to support
--- billions/trillions of rows efficiently via partition pruning.
--- ============================================================
-CREATE TABLE IF NOT EXISTS carpark_availability_history (
-    id              BIGSERIAL,
-    carpark_number  VARCHAR(32) NOT NULL,
-    total_lots      INT NOT NULL,
-    lots_available  INT NOT NULL,
-    lot_type        VARCHAR(10) NOT NULL,
-    update_datetime TIMESTAMPTZ NOT NULL,
-    created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id, update_datetime)
-) PARTITION BY RANGE (update_datetime);
+-- -- ============================================================
+-- -- Table 3: Time-Series Availability History (Cold Data / Audit)
+-- -- Stores every recorded availability snapshot.
+-- -- Partitioned by month (RANGE on update_datetime) to support
+-- -- billions/trillions of rows efficiently via partition pruning.
+-- -- ============================================================
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history (
+--     id              BIGSERIAL,
+--     carpark_number  VARCHAR(32) NOT NULL,
+--     total_lots      INT NOT NULL,
+--     lots_available  INT NOT NULL,
+--     lot_type        VARCHAR(10) NOT NULL,
+--     update_datetime TIMESTAMPTZ NOT NULL,
+--     created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+--     PRIMARY KEY (id, update_datetime)
+-- ) PARTITION BY RANGE (update_datetime);
 
--- Default partition to catch data outside explicit monthly partitions
-CREATE TABLE IF NOT EXISTS carpark_availability_history_default
-    PARTITION OF carpark_availability_history DEFAULT;
+-- -- Default partition to catch data outside explicit monthly partitions
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history_default
+--     PARTITION OF carpark_availability_history DEFAULT;
 
--- Automatically create 2026-08 monthly partition
-CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_08
-    PARTITION OF carpark_availability_history
-    FOR VALUES FROM ('2026-08-01 00:00:00+00') TO ('2026-09-01 00:00:00+00');
+-- -- Automatically create 2026-08 monthly partition
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_08
+--     PARTITION OF carpark_availability_history
+--     FOR VALUES FROM ('2026-08-01 00:00:00+00') TO ('2026-09-01 00:00:00+00');
 
-CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_09
-    PARTITION OF carpark_availability_history
-    FOR VALUES FROM ('2026-09-01 00:00:00+00') TO ('2026-10-01 00:00:00+00');
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_09
+--     PARTITION OF carpark_availability_history
+--     FOR VALUES FROM ('2026-09-01 00:00:00+00') TO ('2026-10-01 00:00:00+00');
 
-CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_10
-    PARTITION OF carpark_availability_history
-    FOR VALUES FROM ('2026-10-01 00:00:00+00') TO ('2026-11-01 00:00:00+00');
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_10
+--     PARTITION OF carpark_availability_history
+--     FOR VALUES FROM ('2026-10-01 00:00:00+00') TO ('2026-11-01 00:00:00+00');
 
-CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_11
-    PARTITION OF carpark_availability_history
-    FOR VALUES FROM ('2026-11-01 00:00:00+00') TO ('2026-12-01 00:00:00+00');
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_11
+--     PARTITION OF carpark_availability_history
+--     FOR VALUES FROM ('2026-11-01 00:00:00+00') TO ('2026-12-01 00:00:00+00');
 
-CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_12
-    PARTITION OF carpark_availability_history
-    FOR VALUES FROM ('2026-12-01 00:00:00+00') TO ('2027-01-01 00:00:00+00');
+-- CREATE TABLE IF NOT EXISTS carpark_availability_history_2026_12
+--     PARTITION OF carpark_availability_history
+--     FOR VALUES FROM ('2026-12-01 00:00:00+00') TO ('2027-01-01 00:00:00+00');
 
--- BRIN index: 99% smaller than B-Tree, ideal for append-only monotonic timestamps
-CREATE INDEX IF NOT EXISTS idx_history_brin_time
-    ON carpark_availability_history USING BRIN (update_datetime);
+-- -- BRIN index: 99% smaller than B-Tree, ideal for append-only monotonic timestamps
+-- CREATE INDEX IF NOT EXISTS idx_history_brin_time
+--     ON carpark_availability_history USING BRIN (update_datetime);
 
--- Composite index for history lookup by carpark + time range
-CREATE INDEX IF NOT EXISTS idx_history_carpark_time
-    ON carpark_availability_history (carpark_number, update_datetime DESC);
+-- -- Composite index for history lookup by carpark + time range
+-- CREATE INDEX IF NOT EXISTS idx_history_carpark_time
+--     ON carpark_availability_history (carpark_number, update_datetime DESC);
