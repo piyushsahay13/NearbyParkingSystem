@@ -123,6 +123,16 @@ resilience4j:
         failureRateThreshold: 50
         slowCallRateThreshold: 80
         slowCallDurationThreshold: 3s
+      redisRateLimiter:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 15s
+        failureRateThreshold: 50
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 1s
   retry:
     instances:
       liveAvailabilityApi:
@@ -171,6 +181,10 @@ rate-limit:
   refill-duration-seconds: 60
   cost-per-request: 1
   key-prefix: "rate-limit:"
+  fallback:
+    enabled: true
+    max-buckets: 20000
+    cleanup-interval-ms: 60000
 
 ---
 # ─── Docker Profile Override ──────────────────────────────────

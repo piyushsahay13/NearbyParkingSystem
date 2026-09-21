@@ -112,8 +112,7 @@ public class StaticDatasetLoaderService {
                 latitude, longitude,
                 carParkType, parkingSystem,
                 shortTermParking, freeParking, nightParking,
-                carParkDecks, gantryHeight, carParkBasement
-        );
+                carParkDecks, gantryHeight, carParkBasement);
     }
 
     private static double parseDouble(String s, String field, String carparkNo) {

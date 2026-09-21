@@ -12,6 +12,7 @@ public interface ApplicationConstants {
     String HEADER_RATE_LIMIT = "X-RateLimit-Limit";
     String HEADER_RATE_LIMIT_REMAINING = "X-RateLimit-Remaining";
     String HEADER_RATE_LIMIT_RESET = "X-RateLimit-Reset";
+    String HEADER_RATE_LIMIT_FALLBACK = "X-RateLimit-Fallback";
     String HEADER_RETRY_AFTER = "Retry-After";
 
     double WGS84_SEMI_MAJOR_AXIS = 6378137.0;

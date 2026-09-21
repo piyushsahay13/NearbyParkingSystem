@@ -1,6 +1,7 @@
 package com.wego.parkingsystem.ratelimit;
 
 import static com.wego.parkingsystem.constants.ApplicationConstants.HEADER_RATE_LIMIT;
+import static com.wego.parkingsystem.constants.ApplicationConstants.HEADER_RATE_LIMIT_FALLBACK;
 import static com.wego.parkingsystem.constants.ApplicationConstants.HEADER_RATE_LIMIT_REMAINING;
 import static com.wego.parkingsystem.constants.ApplicationConstants.HEADER_RATE_LIMIT_RESET;
 import static com.wego.parkingsystem.constants.ApplicationConstants.HEADER_RETRY_AFTER;
@@ -34,6 +35,7 @@ import java.util.UUID;
  *   <li>Resolves client IP via {@link ClientKeyResolver}.</li>
  *   <li>Calls {@link RateLimiter#checkRateLimit(String)} with prefixed key.</li>
  *   <li>If allowed: injects X-RateLimit-* headers and continues filter chain.</li>
+ *   <li>If fallback: injects X-RateLimit-Fallback header.</li>
  *   <li>If blocked: writes HTTP 429 JSON response and short-circuits the chain.</li>
  * </ol>
  */
@@ -44,7 +46,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final RateLimiter rateLimiter;
     private final ClientKeyResolver clientKeyResolver;
-    private final TokenBucketRateLimiter tokenBucketRateLimiter;
     private final ObjectMapper objectMapper;
 
     @Value("${rate-limit.enabled:true}")
@@ -71,10 +72,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         RateLimitResult result = rateLimiter.checkRateLimit(redisKey);
 
-        int capacity = tokenBucketRateLimiter.getCapacity();
+        int capacity = rateLimiter.getCapacity();
 
         // Always inject X-RateLimit-Limit
         response.setHeader(HEADER_RATE_LIMIT, String.valueOf(capacity));
+
+        // Inject fallback header if in-memory fallback was engaged
+        if (result.isFallback()) {
+            response.setHeader(HEADER_RATE_LIMIT_FALLBACK, "true");
+            log.warn("Rate limit evaluated via in-memory fallback for client: {} (allowed={})",
+                    clientIp, result.isAllowed());
+        }
 
         if (result.isAllowed()) {
             // Inject allowed headers

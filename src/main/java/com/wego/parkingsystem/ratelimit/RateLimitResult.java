@@ -15,16 +15,25 @@ public class RateLimitResult {
     int remaining;
     long resetSeconds;
     boolean failOpen;
+    boolean fallback;
 
     public static RateLimitResult allowed(int remaining, long resetSeconds) {
-        return new RateLimitResult(true, remaining, resetSeconds, false);
+        return new RateLimitResult(true, remaining, resetSeconds, false, false);
+    }
+
+    public static RateLimitResult allowedFallback(int remaining, long resetSeconds) {
+        return new RateLimitResult(true, remaining, resetSeconds, false, true);
     }
 
     public static RateLimitResult blocked(long retryAfterSeconds) {
-        return new RateLimitResult(false, 0, retryAfterSeconds, false);
+        return new RateLimitResult(false, 0, retryAfterSeconds, false, false);
+    }
+
+    public static RateLimitResult blockedFallback(long retryAfterSeconds) {
+        return new RateLimitResult(false, 0, retryAfterSeconds, false, true);
     }
 
     public static RateLimitResult failOpen() {
-        return new RateLimitResult(true, -1, -1, true);
+        return new RateLimitResult(true, -1, -1, true, false);
     }
 }

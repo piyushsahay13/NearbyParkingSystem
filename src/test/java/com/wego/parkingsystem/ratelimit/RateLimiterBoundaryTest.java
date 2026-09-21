@@ -76,39 +76,99 @@ class RateLimiterBoundaryTest {
         assertThat(result.isFailOpen()).isFalse();
     }
 
-    // ─── Redis Failure Tests ───────────────────────────────────────────────────
+    // ─── Resilient Fallback Tests ──────────────────────────────────────────────
 
     @Test
-    @DisplayName("Should FAIL OPEN when Redis throws exception")
-    void shouldFailOpenOnRedisException() {
+    @DisplayName("Should FALL BACK to in-memory rate limiter when Redis throws exception")
+    void shouldFallbackToInMemoryLimiterOnRedisException() {
         doThrow(new RuntimeException("Redis connection refused"))
                 .when(redisTemplate).execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any());
 
         RateLimitResult result = rateLimiter.checkRateLimit("rate-limit:192.168.1.1");
 
         assertThat(result.isAllowed()).isTrue();
-        assertThat(result.isFailOpen()).isTrue();
+        assertThat(result.isFallback()).isTrue();
+        assertThat(result.getRemaining()).isEqualTo(9);
+        assertThat(result.isFailOpen()).isFalse();
     }
 
     @Test
-    @DisplayName("Should FAIL OPEN when Redis returns null result")
-    void shouldFailOpenOnNullRedisResult() {
+    @DisplayName("Should enforce rate limiting via fallback when Redis is completely down (10 allowed, 11th blocked)")
+    void shouldEnforceRateLimitsViaFallbackWhenRedisIsDown() {
+        doThrow(new RuntimeException("Redis cluster unreachable"))
+                .when(redisTemplate).execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any());
+
+        String key = "rate-limit:192.168.1.50";
+
+        // First 10 requests must be allowed by in-memory fallback
+        for (int i = 0; i < 10; i++) {
+            RateLimitResult result = rateLimiter.checkRateLimit(key);
+            assertThat(result.isAllowed()).isTrue();
+            assertThat(result.isFallback()).isTrue();
+            assertThat(result.getRemaining()).isEqualTo(9 - i);
+        }
+
+        // 11th request must be BLOCKED by in-memory fallback to protect backend
+        RateLimitResult blocked = rateLimiter.checkRateLimit(key);
+        assertThat(blocked.isAllowed()).isFalse();
+        assertThat(blocked.isFallback()).isTrue();
+        assertThat(blocked.getRemaining()).isEqualTo(0);
+        assertThat(blocked.getResetSeconds()).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("Should FALL BACK to in-memory rate limiter when Redis returns null result")
+    void shouldFallbackOnNullRedisResult() {
         doReturn(null)
                 .when(redisTemplate).execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any());
 
-        RateLimitResult result = rateLimiter.checkRateLimit("rate-limit:192.168.1.1");
+        RateLimitResult result = rateLimiter.checkRateLimit("rate-limit:192.168.1.2");
 
         assertThat(result.isAllowed()).isTrue();
-        assertThat(result.isFailOpen()).isTrue();
+        assertThat(result.isFallback()).isTrue();
+        assertThat(result.getRemaining()).isEqualTo(9);
     }
 
     @Test
-    @DisplayName("Should FAIL OPEN when Redis returns incomplete result list")
-    void shouldFailOpenOnIncompleteRedisResult() {
+    @DisplayName("Should FALL BACK to in-memory rate limiter when Redis returns incomplete result list")
+    void shouldFallbackOnIncompleteRedisResult() {
         doReturn(List.of(1L)) // Missing remaining and ttl fields
                 .when(redisTemplate).execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any());
 
-        RateLimitResult result = rateLimiter.checkRateLimit("rate-limit:192.168.1.1");
+        RateLimitResult result = rateLimiter.checkRateLimit("rate-limit:192.168.1.3");
+
+        assertThat(result.isAllowed()).isTrue();
+        assertThat(result.isFallback()).isTrue();
+        assertThat(result.getRemaining()).isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("Circuit breaker in OPEN state fast-fails directly to in-memory fallback without touching Redis")
+    void shouldFastFailToFallbackWhenCircuitBreakerIsOpen() {
+        rateLimiter.getCircuitBreaker().transitionToOpenState();
+
+        RateLimitResult result = rateLimiter.checkRateLimit("rate-limit:192.168.1.4");
+
+        assertThat(result.isAllowed()).isTrue();
+        assertThat(result.isFallback()).isTrue();
+        // Verify Redis was NEVER invoked because CircuitBreaker is open
+        Mockito.verifyNoInteractions(redisTemplate);
+    }
+
+    @Test
+    @DisplayName("Should FAIL OPEN when both Redis and fallback throw unexpected exceptions")
+    void shouldFailOpenWhenBothRedisAndFallbackFail() {
+        InMemoryTokenBucketRateLimiter failingFallback = Mockito.mock(InMemoryTokenBucketRateLimiter.class);
+        Mockito.when(failingFallback.checkRateLimit(anyString()))
+                .thenThrow(new RuntimeException("Fallback memory error"));
+
+        TokenBucketRateLimiter resilientLimiter = new TokenBucketRateLimiter(
+                redisTemplate, new SimpleMeterRegistry(), failingFallback);
+
+        doThrow(new RuntimeException("Redis unavailable"))
+                .when(redisTemplate).execute(any(RedisScript.class), anyList(), any(), any(), any(), any(), any());
+
+        RateLimitResult result = resilientLimiter.checkRateLimit("rate-limit:192.168.1.5");
 
         assertThat(result.isAllowed()).isTrue();
         assertThat(result.isFailOpen()).isTrue();
@@ -124,6 +184,18 @@ class RateLimiterBoundaryTest {
         assertThat(result.getRemaining()).isEqualTo(7);
         assertThat(result.getResetSeconds()).isEqualTo(55L);
         assertThat(result.isFailOpen()).isFalse();
+        assertThat(result.isFallback()).isFalse();
+    }
+
+    @Test
+    @DisplayName("RateLimitResult.allowedFallback() should carry fallback flag")
+    void allowedFallbackResultShouldHaveFallbackFlag() {
+        RateLimitResult result = RateLimitResult.allowedFallback(7, 55L);
+        assertThat(result.isAllowed()).isTrue();
+        assertThat(result.getRemaining()).isEqualTo(7);
+        assertThat(result.getResetSeconds()).isEqualTo(55L);
+        assertThat(result.isFailOpen()).isFalse();
+        assertThat(result.isFallback()).isTrue();
     }
 
     @Test
@@ -133,6 +205,17 @@ class RateLimiterBoundaryTest {
         assertThat(result.isAllowed()).isFalse();
         assertThat(result.getRemaining()).isEqualTo(0);
         assertThat(result.getResetSeconds()).isEqualTo(30L);
+        assertThat(result.isFallback()).isFalse();
+    }
+
+    @Test
+    @DisplayName("RateLimitResult.blockedFallback() should carry retry-after and fallback flag")
+    void blockedFallbackResultShouldCarryRetryAfterAndFallbackFlag() {
+        RateLimitResult result = RateLimitResult.blockedFallback(30L);
+        assertThat(result.isAllowed()).isFalse();
+        assertThat(result.getRemaining()).isEqualTo(0);
+        assertThat(result.getResetSeconds()).isEqualTo(30L);
+        assertThat(result.isFallback()).isTrue();
     }
 
     @Test

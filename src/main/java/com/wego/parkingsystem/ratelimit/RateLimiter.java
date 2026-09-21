@@ -13,4 +13,11 @@ public interface RateLimiter {
      * @return {@link RateLimitResult} describing the decision (allowed/blocked/fail-open)
      */
     RateLimitResult checkRateLimit(String clientKey);
+
+    /**
+     * Returns the maximum configured capacity / burst limit for the rate limiter.
+     *
+     * @return maximum token capacity
+     */
+    int getCapacity();
 }
